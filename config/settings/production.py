@@ -1,0 +1,67 @@
+"""Production settings — extends base."""
+import sentry_sdk
+from decouple import config
+from sentry_sdk.integrations.celery import CeleryIntegration
+from sentry_sdk.integrations.django import DjangoIntegration
+from sentry_sdk.integrations.redis import RedisIntegration
+
+from .base import *  # noqa: F401, F403
+
+DEBUG = False
+
+# ---------------------------------------------------------------------------
+# Security hardening
+# ---------------------------------------------------------------------------
+SECURE_HSTS_SECONDS = 31536000
+SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+SECURE_HSTS_PRELOAD = True
+SECURE_SSL_REDIRECT = True
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True
+SECURE_BROWSER_XSS_FILTER = True
+SECURE_CONTENT_TYPE_NOSNIFF = True
+X_FRAME_OPTIONS = "DENY"
+SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
+
+# ---------------------------------------------------------------------------
+# AWS S3 Static / Media
+# ---------------------------------------------------------------------------
+USE_S3 = config("USE_S3", default=False, cast=bool)
+if USE_S3:
+    AWS_ACCESS_KEY_ID = config("AWS_ACCESS_KEY_ID")
+    AWS_SECRET_ACCESS_KEY = config("AWS_SECRET_ACCESS_KEY")
+    AWS_STORAGE_BUCKET_NAME = config("AWS_STORAGE_BUCKET_NAME")
+    AWS_S3_REGION_NAME = config("AWS_S3_REGION_NAME", default="us-east-1")
+    AWS_S3_CUSTOM_DOMAIN = config("AWS_S3_CUSTOM_DOMAIN", default="")
+    AWS_S3_OBJECT_PARAMETERS = {"CacheControl": "max-age=86400"}
+    AWS_DEFAULT_ACL = None
+    AWS_S3_FILE_OVERWRITE = False
+    AWS_QUERYSTRING_AUTH = False
+
+    STORAGES = {
+        "default": {"BACKEND": "storages.backends.s3boto3.S3Boto3Storage"},
+        "staticfiles": {"BACKEND": "storages.backends.s3boto3.S3StaticStorage"},
+    }
+
+# ---------------------------------------------------------------------------
+# Sentry
+# ---------------------------------------------------------------------------
+SENTRY_DSN = config("SENTRY_DSN", default="")
+if SENTRY_DSN:
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        integrations=[
+            DjangoIntegration(transaction_style="url"),
+            CeleryIntegration(),
+            RedisIntegration(),
+        ],
+        traces_sample_rate=0.1,
+        send_default_pii=False,
+        environment="production",
+    )
+
+# ---------------------------------------------------------------------------
+# Production DB — enforce SSL
+# ---------------------------------------------------------------------------
+DATABASES["default"]["OPTIONS"]["sslmode"] = "require"  # noqa: F405
+DATABASES["default"]["CONN_MAX_AGE"] = 120  # noqa: F405
