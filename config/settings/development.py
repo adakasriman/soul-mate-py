@@ -3,6 +3,17 @@ from .base import *  # noqa: F401, F403
 
 DEBUG = True
 
+# Run Celery tasks synchronously in-process — no Redis/broker needed locally
+CELERY_TASK_ALWAYS_EAGER = True
+CELERY_TASK_EAGER_PROPAGATES = True
+
+# Use in-memory cache in dev — avoids Redis dependency for throttling and sessions
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+    }
+}
+
 # Relax throttling in dev
 REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"] = {  # noqa: F405
     "anon": "1000/hour",
